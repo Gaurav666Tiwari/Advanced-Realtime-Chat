@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Profile Settings</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="center-wrapper">
+    <div class="register-card">
+        <h2>👤 PROFILE SETTINGS</h2>
+        <img src="{{ image_file }}" alt="profile image" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover;">
+        <form method="POST" enctype="multipart/form-data">
+            <input type="file" name="profile_image" accept="image/*" required style="background:transparent; color:white;">
+            <button type="submit">UPDATE PHOTO</button>
+        </form>
+        <p><a href="{{ url_for('chat') }}" style="color:white; font-size:12px;">Back to Chat</a></p>
+    </div>
+</body>
+</html>

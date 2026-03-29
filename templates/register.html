@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Register - Cloud Chat</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body { 
+            display: flex; justify-content: center; align-items: center; 
+            height: 100vh; background: #0f111a; 
+        }
+        .login-card {
+            background: #1e1e2e; padding: 40px; border-radius: 30px;
+            width: 350px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .login-card h2 { color: #b4befe; margin-bottom: 30px; font-weight: 800; }
+        input {
+            width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 5px;
+            border: none; outline: none; background: #fff; color: #333;
+        }
+        .join-btn {
+            width: 100%; padding: 12px; border-radius: 5px; border: none;
+            background: #e0e0e0; color: #1e1e2e; font-weight: bold; cursor: pointer;
+            text-transform: uppercase; margin-top: 10px;
+        }
+        p { color: #a6adc8; font-size: 14px; margin-top: 20px; }
+        a { color: #b4befe; text-decoration: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h2>✨ JOIN SPACE</h2>
+        <form method="POST">
+            <input type="text" name="username" placeholder="Username" required>
+            <input type="email" name="email" placeholder="Email" required>
+            <input type="password" name="password" placeholder="Password" required>
+            <button type="submit" class="join-btn">REGISTER</button>
+        </form>
+        <p>Already a member? <a href="{{ url_for('login') }}">Login</a></p>
+    </div>
+</body>
+</html>

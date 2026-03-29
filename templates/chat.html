@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Chat Pro</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        .unread-badge {
+            background: #ff7675; color: white; font-size: 10px;
+            padding: 2px 6px; border-radius: 10px; display: none;
+            font-weight: bold; margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<audio id="notif-sound" preload="auto">
+    <source src="{{ url_for('static', filename='sounds/notification.mp3') }}" type="audio/mpeg">
+</audio>
+
+<div class="app-container">
+    <aside class="sidebar">
+        <header class="sidebar-header">
+            <h3>Chats</h3>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </header>
+        <div class="users-list">
+            <div class="user-item active" id="item-Community" onclick="switchChat('Community Group', 'groups', 'community_input')">
+                <div class="avatar-wrapper group">👥</div>
+                <div class="user-info">
+                    <h5>Community Group <span id="badge-Community" class="unread-badge">0</span></h5>
+                </div>
+            </div>
+            {% for user in all_users %}
+            <div class="user-item" id="item-{{ user.username }}" onclick="switchChat('{{ user.username }}', 'user', 'user_input_{{ user.id }}')">
+                <div class="avatar-wrapper single">👤</div>
+                <div class="user-info">
+                    <h5>{{ user.username }} <span id="badge-{{ user.username }}" class="unread-badge">0</span></h5>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </aside>
+
+    <main class="main-chat">
+        <header class="chat-header">
+            <div class="chat-about">
+                <div id="header-avatar" class="avatar-wrapper group header-avatar">👥</div>
+                <div class="chat-meta">
+                    <h4 id="header-chat-name">Community Group</h4>
+                    <span id="typing-status" class="status online">Online</span>
+                </div>
+            </div>
+        </header>
+
+        <div id="chat-box" class="chat-messages">
+            {% for msg in history %}
+                <div class="message-wrapper {{ 'sent-wrapper' if msg.sender.username == username else 'received-wrapper' }}" 
+                     data-sender="{{ msg.sender.username }}" 
+                     data-recipient="{{ msg.recipient.username if msg.recipient_id else 'Community Group' }}">
+                    <div class="bubble {{ 'sent' if msg.sender.username == username else 'received' }}">
+                        <span class="user-label">{{ msg.sender.username }}</span>
+                        <p>{{ msg.content }}</p>
+                    </div>
+                    <span class="time-stamp">{{ msg.timestamp.strftime('%I:%M %p') }}</span>
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="input-container-group">
+            <div id="community_input" class="user-input-dedicated active">
+                <input type="text" oninput="isTyping()" placeholder="Post to Community...">
+                <button onclick="sendMsg('community_input')" class="send-btn">Post</button>
+            </div>
+            {% for user in all_users %}
+            <div id="user_input_{{ user.id }}" class="user-input-dedicated">
+                <input type="text" oninput="isTyping()" placeholder="Message {{ user.username }}...">
+                <button onclick="sendMsg('user_input_{{ user.id }}')" class="send-btn">Send</button>
+            </div>
+            {% endfor %}
+        </div>
+    </main>
+</div>
+
+<script>
+    var socket = io();
+    var currentUser = "{{ username }}";
+    var activeChat = "Community Group";
+    var typingTimeout;
+    var audio = document.getElementById('notif-sound');
+
+    // --- Audio Unlock Logic: Unlocks audio playback on first user interaction ---
+    document.addEventListener('click', function() {
+        audio.play().then(() => {
+            audio.pause();
+            audio.currentTime = 0;
+        }).catch(e => console.log("Audio context initialized"));
+    }, { once: true });
+
+    // Handles filtering of messages based on the currently active chat context
+    function filterMessages() {
+        document.querySelectorAll('.message-wrapper').forEach(msg => {
+            var s = msg.getAttribute('data-sender'), r = msg.getAttribute('data-recipient');
+            if (activeChat === "Community Group") {
+                msg.style.display = (r === "Community Group") ? "flex" : "none";
+            } else {
+                // Show messages only if they belong to the private conversation between me and activeChat
+                msg.style.display = ((s === currentUser && r === activeChat) || (s === activeChat && r === currentUser)) ? "flex" : "none";
+            }
+        });
+        var chatBox = document.getElementById('chat-box');
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // Handles incoming messages via Socket.IO
+    socket.on('message', function(data) {
+        var isMe = data.sender === currentUser;
+        
+        if (!isMe) {
+            // Trigger notification sound for incoming messages
+            audio.play().catch(e => console.log("Sound playback prevented"));
+
+            // Increment unread badge if the message is not from the current active chat
+            if (data.recipient !== activeChat && data.sender !== activeChat) {
+                var badgeId = data.recipient === "Community Group" ? "badge-Community" : "badge-" + data.sender;
+                var badge = document.getElementById(badgeId);
+                if (badge) {
+                    badge.innerText = parseInt(badge.innerText) + 1;
+                    badge.style.display = "inline-block";
+                }
+            }
+        }
+
+        // Dynamically append the new message to the chat box
+        var html = `<div class="message-wrapper ${isMe ? 'sent-wrapper' : 'received-wrapper'}" data-sender="${data.sender}" data-recipient="${data.recipient}">
+            <div class="bubble ${isMe ? 'sent' : 'received'}">
+                <span class="user-label">${data.sender}</span><p>${data.msg}</p>
+            </div><span class="time-stamp">${data.time}</span></div>`;
+        
+        document.getElementById('chat-box').insertAdjacentHTML('beforeend', html);
+        filterMessages();
+    });
+
+    // Emits typing status to the server
+    function isTyping() {
+        socket.emit('typing', { user: currentUser, recipient: activeChat, status: true });
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
+            socket.emit('typing', { user: currentUser, recipient: activeChat, status: false });
+        }, 2000);
+    }
+
+    // Updates the UI to show who is currently typing
+    socket.on('typing', function(data) {
+        if ((data.recipient === currentUser && data.user === activeChat) || (data.recipient === "Community Group" && activeChat === "Community Group")) {
+            document.getElementById('typing-status').innerText = data.status ? data.user + " is typing..." : "Online";
+        }
+    });
+
+    // Switches the UI between different chat users or groups
+    function switchChat(name, type, inputId) {
+        activeChat = name;
+        document.getElementById('header-chat-name').innerText = name;
+        document.getElementById('header-avatar').innerText = (type === 'groups' ? '👥' : '👤');
+        
+        document.querySelectorAll('.user-item').forEach(i => i.classList.remove('active'));
+        document.getElementById('item-' + (name === "Community Group" ? "Community" : name)).classList.add('active');
+        
+        // Reset and hide the notification badge for the selected chat
+        var badge = document.getElementById(name === "Community Group" ? "badge-Community" : "badge-" + name);
+        if (badge) { badge.innerText = "0"; badge.style.display = "none"; }
+
+        document.querySelectorAll('.user-input-dedicated').forEach(i => i.classList.remove('active'));
+        document.getElementById(inputId).classList.add('active');
+        filterMessages();
+    }
+
+    // Sends a message to the currently active chat
+    function sendMsg(inputId) {
+        var inp = document.getElementById(inputId).querySelector('input');
+        if(inp.value.trim() !== "") {
+            socket.emit('message', {msg: inp.value, recipient: activeChat});
+            inp.value = '';
+        }
+    }
+
+    // Initialize message filtering on page load
+    window.onload = filterMessages;
+</script>
+</body>
+</html>
