@@ -31,3 +31,21 @@ D:\advanced_chat_app\
 ├── app.py (Main Server)
 ├── models.py (Database Schema)
 └── requirements.txt
+🚀 How to Run Locally
+Clone the repository:
+
+Bash
+git clone [https://github.com/Gaurav666Tiwari/Advanced-Realtime-Chat.git](https://github.com/Gaurav666Tiwari/Advanced-Realtime-Chat.git)
+Navigate to the folder:
+
+Bash
+cd Advanced-Realtime-Chat
+Install dependencies:
+
+Bash
+pip install -r requirements.txt
+Run the application:
+
+Bash
+python app.py
+Access the app: Open http://127.0.0.1:5000 in your browser.
